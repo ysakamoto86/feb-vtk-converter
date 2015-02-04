@@ -142,13 +142,14 @@ nstate = int(sys.argv[2])  # read this state
 
 f = open(filename, 'rb')
 
+# get file size
 f.seek(0,2)
 filesize = f.tell()
 f.seek(0,0)
 
 
 def search_block(f, TAGS, BLOCK_TAG, max_rec=5, cur_rec=0,
-                 verbose=0, inv_TAGS=0):
+                 verbose=0, inv_TAGS=0, print_tag=1):
     '''Search some block in the current level.'''
 
     if cur_rec>max_rec:
@@ -171,14 +172,16 @@ def search_block(f, TAGS, BLOCK_TAG, max_rec=5, cur_rec=0,
         print 'size:', a
     
     if(int(TAGS[BLOCK_TAG], base=16) == cur_id):
-        print('%s' %BLOCK_TAG)
+        if print_tag == 1:
+            print('%s' %BLOCK_TAG)
         
         return a
     else:
         f.seek(a, 1)
         d = search_block(f, TAGS, BLOCK_TAG, cur_rec=cur_rec+1,
                          verbose=verbose,
-                         inv_TAGS=inv_TAGS)
+                         inv_TAGS=inv_TAGS,
+                         print_tag=print_tag)
         if d == -1:
             f.seek(-a, 1)
             return -1
@@ -274,23 +277,126 @@ while check_block(f, TAGS, 'DIC_ITEM'):
     item_names.append(f.read(64).split('\x00')[0])
 
 a = search_block(f, TAGS, 'MATERIALS')
-f.seek(a, 1)  # skip the material section
+
+mat_names = []
+mat_ids = []
+while check_block(f, TAGS, 'MATERIAL'):
+    a = search_block(f, TAGS, 'MATERIAL')
+    
+    a = search_block(f, TAGS, 'MAT_ID')
+    mat_ids.append(int(struct.unpack('I', f.read(4))[0]))
+    
+    a = search_block(f, TAGS, 'MAT_NAME')
+    mat_names.append(f.read(64).split('\x00')[0])
+    
 
 a = search_block(f, TAGS, 'GEOMETRY')
-f.seek(a, 1)  # skip the material section
+
+a = search_block(f, TAGS, 'NODE_SECTION')
+
+a = search_block(f, TAGS, 'NODE_COORDS')
+n_nodes = int(a/3/4)
+print 'number of nodes:', n_nodes
+node_coord = zeros([n_nodes, 3])
+for i in range(n_nodes):
+    for j in range(0, 3):
+        node_coord[i, j] = struct.unpack('f', f.read(4))[0]
+
+a = search_block(f, TAGS, 'DOMAIN_SECTION')
+
+dom_elem_types = []
+dom_mat_ids = []
+dom_names = []
+dom_elems = [] # number of elements for each domain
+elements = []  # node connectivity
+# NOTE: index starts from 0 (in .feb file, index starts from 1)
+element_ids = []
+while check_block(f, TAGS, 'DOMAIN'):
+    a = search_block(f, TAGS, 'DOMAIN')
+    
+    a = search_block(f, TAGS, 'DOMAIN_HDR')
+
+    a = search_block(f, TAGS, 'DOM_ELEM_TYPE')
+    dom_elem_types.append(int(struct.unpack('I', f.read(4))[0]))
+
+    a = search_block(f, TAGS, 'DOM_MAT_ID')
+    dom_mat_ids.append(int(struct.unpack('I', f.read(4))[0]))
+    
+    a = search_block(f, TAGS, 'DOM_ELEMS')
+    dom_elems.append(int(struct.unpack('I', f.read(4))[0]))
+    
+    a = search_block(f, TAGS, 'DOM_NAME')
+    dom_names.append(int(struct.unpack('I', f.read(4))[0]))
+    
+    a = search_block(f, TAGS, 'DOM_ELEM_LIST')
+    print a
+    while check_block(f, TAGS, 'ELEMENT'):
+        a = search_block(f, TAGS, 'ELEMENT', print_tag=0)
+        element = zeros(4)
+        element_ids.append(struct.unpack('I', f.read(4))[0])
+        for j in range(4):
+            element[j] = struct.unpack('I', f.read(4))[0]
+        elements.append(element)
+
+
+a = search_block(f, TAGS, 'SURFACE_SECTION')
+
+surface_ids = []
+surface_faces = []  # number of faces
+surface_names = []
+faces = []
+face_ids = []
+while check_block(f, TAGS, 'SURFACE'):
+    a = search_block(f, TAGS, 'SURFACE')
+
+    a = search_block(f, TAGS, 'SURFACE_HDR')
+
+    a = search_block(f, TAGS, 'SURFACE_ID')
+    surface_ids.append(struct.unpack('I', f.read(4))[0])
+    
+    a = search_block(f, TAGS, 'SURFACE_FACES')
+    surface_faces.append(struct.unpack('I', f.read(4))[0])
+    
+    a = search_block(f, TAGS, 'SURFACE_NAME')
+    surface_names.append(int(struct.unpack('I', f.read(4))[0]))
+    
+    a = search_block(f, TAGS, 'FACE_LIST')
+    
+    while check_block(f, TAGS, 'FACE'):
+        a = search_block(f, TAGS, 'FACE', print_tag=0)
+        cur_cur = f.tell()
+        
+        face = zeros(3, dtype=int)
+        face_ids.append(struct.unpack('I', f.read(4))[0])
+
+        # skip (probably specifing the surface element type here)
+        f.seek(4, 1)
+        # tri3 element
+        for j in range(3):
+            face[j] = struct.unpack('I', f.read(4))[0]
+        faces.append(face)
+        # skip junk
+        f.seek(cur_cur+a, 0)
+
 
 # skip the first nstate-1 states
-for ns in range(0, nstate):
-    a = search_block(f, TAGS, 'STATE')
-    f.seek(a, 1)
-
+cur_state = 0
+while check_block(f, TAGS, 'STATE'):
+    cur_state += 1
+    a_state = search_block(f, TAGS, 'STATE', print_tag=0)
     
-    # if(int(STATE_SECTION, base=16) == struct.unpack('I', f.read(4))[0]):
-    #     print('State section %d' %ns)
-    # a = struct.unpack('I', f.read(4))[0]  # size of the state section
-    # print('skipping this state')
-    # f.seek(a, 1)  # skip this section
+    cur_cur = f.tell()
+    a = search_block(f, TAGS, 'STATE_HEADER', print_tag=0)
+    a = search_block(f, TAGS, 'STATE_HDR_TIME', print_tag=0)
+    time = struct.unpack('f', f.read(4))
+    print 'This state is at %f time' % (time)
+    f.seek(cur_cur, 0)
+    
+    f.seek(a_state, 1)
+    if cur_state == (nstate-1):
+        break
 
+# now extract the information from the desired state
 a = search_block(f, TAGS, 'STATE')
 a = search_block(f, TAGS, 'STATE_HEADER')
 
@@ -304,18 +410,14 @@ time = struct.unpack('f', f.read(4))
 print 'This state is at %f time' % (time)
 
 a = search_block(f, TAGS, 'STATE_DATA')
-print a
-
 
 a = search_block(f, TAGS, 'NODE_DATA')
-print a
 
 n_node_data = 0
 while check_block(f, TAGS, 'STATE_VARIABLE'):
     n_node_data += 1
     
     a = search_block(f, TAGS, 'STATE_VARIABLE')
-    print a
 
     a = search_block(f, TAGS, 'STATE_VAR_ID')
     var_id = struct.unpack('I', f.read(4))[0]
@@ -323,28 +425,44 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
     print 'variable_name:', item_names[var_id-1]
     
     a = search_block(f, TAGS, 'STATE_VAR_DATA')
-    print a
 
-    #### ????? ####
-    f.read(8)
+    # FLOAT
+    if item_types[var_id-1] == 0:
+        n_data = int((a-8)/4)
+        print 'number of data points', n_data
+
+        if n_data > 0:
+            f.read(8)  # skip junk section
+            scalar = zeros(n_data)
+            for i in range(0, n_data):
+                scalar[i] = struct.unpack('f', f.read(4))[0]
+            savetxt('%s.dat' %item_names[var_id-1], scalar)
+        else:
+            f.seek(a, 1)
 
     # VEC3F
-    if item_types[var_id-1] == 1:
+    elif item_types[var_id-1] == 1:
+        n_data = int((a-8)/3/4)
+        print 'number of data points', n_data
 
-        disp = zeros([nNodes, 3])
-        for i in range(0, nNodes):
-            for j in range(0, 3):
-                disp[i, j] = struct.unpack('f', f.read(4))[0]
-        savetxt('%s.dat' %item_names[var_id-1], disp)
-
+        if n_data > 0:
+            f.read(8)  # skip junk section
+            vector = zeros([n_data, 3])
+            for i in range(0, n_data):
+                for j in range(0, 3):
+                    vector[i, j] = struct.unpack('f', f.read(4))[0]
+            savetxt('%s.dat' %item_names[var_id-1], vector)
+        else:
+            f.seek(a,1)
+    else:
+        f.seek(a, 1)
+        
 
 a = search_block(f, TAGS, 'ELEMENT_DATA')
-print a
 
 while check_block(f, TAGS, 'STATE_VARIABLE'):
 
     a = search_block(f, TAGS, 'STATE_VARIABLE')
-    print a
 
     a = search_block(f, TAGS, 'STATE_VAR_ID')
     var_id = struct.unpack('I', f.read(4))[0] + n_node_data
@@ -353,35 +471,63 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
     
     a = search_block(f, TAGS, 'STATE_VAR_DATA')
     print 'state var data size', a
-    
+
+    # FLOAT
+    if item_types[var_id-1] == 0:
+        n_data = int((a-8)/4)
+        print 'number of data points', n_data
+
+        if n_data > 0:
+            f.read(8)  # skip junk section
+            scalar = zeros(n_data)
+            for i in range(0, n_data):
+                scalar[i] = struct.unpack('f', f.read(4))[0]
+            savetxt('%s.dat' %item_names[var_id-1], scalar)
+        else:
+            f.seek(a,1)
     # VEC3F
-    if item_types[var_id-1] == 1:
+    elif item_types[var_id-1] == 1:
         n_data = int((a-8)/3/4)
         print 'number of data points', n_data
 
         if n_data > 0:
-            f.read(8)
-            disp = zeros([n_data, 3])
+            f.read(8)  # skip junk section
+            vector = zeros([n_data, 3])
             for i in range(0, n_data):
                 for j in range(0, 3):
-                    disp[i, j] = struct.unpack('f', f.read(4))[0]
-            savetxt('%s.dat' %item_names[var_id-1], disp)
+                    vector[i, j] = struct.unpack('f', f.read(4))[0]
+            savetxt('%s.dat' %item_names[var_id-1], vector)
         else:
-            f.seek(a,1)
+            f.seek(a, 1)
+    # MAT3FS (6 elements due to symmetry)
+    elif item_types[var_id-1] == 2:
+        n_data = int((a-16)/6/4)
+        print 'number of data points', n_data
+
+        if n_data > 0:
+            f.read(16)  # skip junk section
+            tensor = zeros([n_data, 6])
+            for i in range(0, n_data):
+                for j in range(0, 6):
+                    tensor[i, j] = struct.unpack('f', f.read(4))[0]
+            savetxt('%s.dat' %item_names[var_id-1], tensor)
+        else:
+            f.seek(a, 1)
     else:
-        f.seek(a,1)
+        f.seek(a, 1)
 
-print 'done'
+print 'info extraction done'
 
 
+# skip the last whatever states
 cur_state = nstate
 while check_block(f, TAGS, 'STATE'):
     cur_state += 1
-    a_state = search_block(f, TAGS, 'STATE')
+    a_state = search_block(f, TAGS, 'STATE', print_tag=0)
     
     cur_cur = f.tell()
-    a = search_block(f, TAGS, 'STATE_HEADER')
-    a = search_block(f, TAGS, 'STATE_HDR_TIME')
+    a = search_block(f, TAGS, 'STATE_HEADER', print_tag=0)
+    a = search_block(f, TAGS, 'STATE_HDR_TIME', print_tag=0)
     time = struct.unpack('f', f.read(4))
     print 'This state is at %f time' % (time)
     f.seek(cur_cur, 0)
@@ -390,9 +536,10 @@ while check_block(f, TAGS, 'STATE'):
     if f.tell() == filesize:
         break
 
-    
-print 'EOF?'
-print f.read(4)
+
+if f.tell() == filesize:
+    print 'EOF reached.'
+
 # a = search_block(f, TAGS, 'ROOT', verbose=1, inv_TAGS=inv_TAGS)
 
 
