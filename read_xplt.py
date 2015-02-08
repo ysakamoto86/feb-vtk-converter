@@ -4,11 +4,9 @@ import sys
 import pdb
 
 
-
-
 '''
 // file tags
-enum { 
+enum {
         PLT_ROOT				  = 0x01000000,
         PLT_HEADER				  = 0x01010000,
                 PLT_HDR_VERSION			  = 0x01010001,
@@ -48,7 +46,7 @@ enum {
                                 PLT_SURFACE_FACES = 0x01043103,
                                 PLT_SURFACE_NAME  = 0x01043104,	// added in version 0x03
                         PLT_FACE_LIST		  = 0x01043200,
-                                PLT_FACE	  = 0x01043201, 
+                                PLT_FACE	  = 0x01043201,
                 PLT_NODESET_SECTION		  = 0x01044000,	// added in version 0x03
                         PLT_NODESET		  = 0x01044100,	// added in version 0x03
                         PLT_NODESET_HDR		  = 0x01044101,	// added in version 0x03
@@ -80,7 +78,7 @@ TAGS = {
     'HDR_VERSION': '0x01010001',
     'HDR_NODES': '0x01010002',
     'HDR_MAX_FACET_NODES': '0x01010003',
-    'HDR_COMPRESSION': '0x01010004',  #addedinversion0x03
+    'HDR_COMPRESSION': '0x01010004',  # addedinversion0x03
     'DICTIONARY': '0x01020000',
     'DIC_ITEM': '0x01020001',
     'DIC_ITEM_TYPE': '0x01020002',
@@ -104,7 +102,7 @@ TAGS = {
     'DOM_ELEM_TYPE': '0x01042102',
     'DOM_MAT_ID': '0x01042103',
     'DOM_ELEMS': '0x01032104',
-    'DOM_NAME': '0x01032105',  #addedinversion0x03
+    'DOM_NAME': '0x01032105',  # addedinversion0x03
     'DOM_ELEM_LIST': '0x01042200',
     'ELEMENT': '0x01042201',
     'SURFACE_SECTION': '0x01043000',
@@ -112,16 +110,16 @@ TAGS = {
     'SURFACE_HDR': '0x01043101',
     'SURFACE_ID': '0x01043102',
     'SURFACE_FACES': '0x01043103',
-    'SURFACE_NAME': '0x01043104',  #addedinversion0x03
+    'SURFACE_NAME': '0x01043104',  # addedinversion0x03
     'FACE_LIST': '0x01043200',
     'FACE': '0x01043201',
-    'NODESET_SECTION': '0x01044000',  #addedinversion0x03
-    'NODESET': '0x01044100',  #addedinversion0x03
-    'NODESET_HDR': '0x01044101',  #addedinversion0x03
-    'NODESET_ID': '0x01044102',  #addedinversion0x03
-    'NODESET_NAME': '0x01044103',  #addedinversion0x03
-    'NODESET_SIZE': '0x01044104',  #addedinversion0x03
-    'NODESET_LIST': '0x01044200',  #addedinversion0x03
+    'NODESET_SECTION': '0x01044000',  # addedinversion0x03
+    'NODESET': '0x01044100',  # addedinversion0x03
+    'NODESET_HDR': '0x01044101',  # addedinversion0x03
+    'NODESET_ID': '0x01044102',  # addedinversion0x03
+    'NODESET_NAME': '0x01044103',  # addedinversion0x03
+    'NODESET_SIZE': '0x01044104',  # addedinversion0x03
+    'NODESET_LIST': '0x01044200',  # addedinversion0x03
     'STATE': '0x02000000',
     'STATE_HEADER': '0x02010000',
     'STATE_HDR_ID': '0x02010001',
@@ -150,9 +148,9 @@ if workdir[-1] is not '/':
 f = open(workdir+filename, 'rb')
 
 # get file size
-f.seek(0,2)
+f.seek(0, 2)
 filesize = f.tell()
-f.seek(0,0)
+f.seek(0, 0)
 
 
 def search_block(f, TAGS, BLOCK_TAG, max_depth=5, cur_depth=0,
@@ -162,7 +160,7 @@ def search_block(f, TAGS, BLOCK_TAG, max_depth=5, cur_depth=0,
     # record the initial cursor position
     if cur_depth == 0:
         ini_pos = f.tell()
-    
+
     if cur_depth > max_depth:
         print 'Max iteration reached: Cannot find %s' % BLOCK_TAG
         return -1
@@ -181,11 +179,11 @@ def search_block(f, TAGS, BLOCK_TAG, max_depth=5, cur_depth=0,
         # print 'cur_ID: ' + cur_id_str
         print 'cur_tag:', inv_TAGS[cur_id_str]
         print 'size:', a
-    
+
     if(int(TAGS[BLOCK_TAG], base=16) == cur_id):
         if print_tag == 1:
-            print('%s' %BLOCK_TAG)
-        
+            print('%s' % BLOCK_TAG)
+
         return a
     else:
         f.seek(a, 1)
@@ -202,42 +200,25 @@ def search_block(f, TAGS, BLOCK_TAG, max_depth=5, cur_depth=0,
             return d
 
 
-
 def check_block(f, TAGS, BLOCK_TAG):
     '''Check if the BLOCK TAG exists immediately after the file cursor.'''
 
     buf = struct.unpack('I', f.read(4))[0]
     f.seek(-4, 1)
-    
+
     if(int(TAGS[BLOCK_TAG], base=16) == buf):
         return 1
-    
+
     return 0
 
-        
+
 def seek_block(f, TAGS, BLOCK_TAG):
     if(int(TAGS[BLOCK_TAG], base=16) == struct.unpack('I', f.read(4))[0]):
-        print('%s' %BLOCK_TAG)
+        print('%s' % BLOCK_TAG)
     a = struct.unpack('I', f.read(4))  # size of the root section
 
     return a[0]
 
-def skip_block(f):
-    '''skip some block 
-
-    WARNING: the file cursor needs to be at the begining of the
-    section!
-
-    '''
-    
-    block_id = struct.unpack('I', f.read(4))[0]
-    a = struct.unpack('I', f.read(4))[0]
-    f.seek(a, 1)
-
-    print hex(block_id) + '(size %d)' %a + ' skipped.'
-    
-    return a
-    
 
 if(int(TAGS['FEBIO'], base=16) == struct.unpack('I', f.read(4))[0]):
     print('Correct FEBio format')
@@ -282,7 +263,7 @@ while check_block(f, TAGS, 'DIC_ITEM'):
 
     a = search_block(f, TAGS, 'DIC_ITEM_FMT')
     item_formats.append(int(struct.unpack('I', f.read(4))[0]))
-    
+
     a = search_block(f, TAGS, 'DIC_ITEM_NAME')
     item_names.append(f.read(64).split('\x00')[0])
 
@@ -291,13 +272,13 @@ mat_names = []
 mat_ids = []
 while check_block(f, TAGS, 'MATERIAL'):
     a = search_block(f, TAGS, 'MATERIAL')
-    
+
     a = search_block(f, TAGS, 'MAT_ID')
     mat_ids.append(int(struct.unpack('I', f.read(4))[0]))
-    
+
     a = search_block(f, TAGS, 'MAT_NAME')
     mat_names.append(f.read(64).split('\x00')[0])
-    
+
 
 a = search_block(f, TAGS, 'GEOMETRY')
 a = search_block(f, TAGS, 'NODE_SECTION')
@@ -310,12 +291,12 @@ for i in range(n_nodes):
     for j in range(0, 3):
         node_coords[i, j] = struct.unpack('f', f.read(4))[0]
 savetxt(workdir+'nodes.dat', node_coords)
-        
+
 a = search_block(f, TAGS, 'DOMAIN_SECTION')
 dom_elem_types = []
 dom_mat_ids = []
 dom_names = []
-dom_elems = [] # number of elements for each domain
+dom_elems = []  # number of elements for each domain
 dom_elements = []  # elements for each domain
 # NOTE: index starts from 0 (in .feb file, index starts from 1)
 while check_block(f, TAGS, 'DOMAIN'):
@@ -337,14 +318,14 @@ while check_block(f, TAGS, 'DOMAIN'):
     # dom_names.append(int(struct.unpack('I', f.read(4))[0]))
 
     a = search_block(f, TAGS, 'DOM_ELEM_LIST')
-    
+
     if dom_elem_type == 1:    # penta6
         ne = 6
     elif dom_elem_type == 2:  # tet4
         ne = 4
     elif dom_elem_type == 4:  # tri3
         ne = 3
-    elements = []    
+    elements = []
     while check_block(f, TAGS, 'ELEMENT'):
         a = search_block(f, TAGS, 'ELEMENT', print_tag=0)
         element = zeros(ne+1, dtype=int)
@@ -355,7 +336,7 @@ while check_block(f, TAGS, 'DOMAIN'):
     dom_elements.append(elements)
 
 for i in range(len(dom_elements)):
-    savetxt(workdir+'elements_%d.dat' %i, dom_elements[i], fmt='%d')
+    savetxt(workdir+'elements_%d.dat' % i, dom_elements[i], fmt='%d')
 
 print f.tell()
 if search_block(f, TAGS, 'SURFACE_SECTION') > 0:
@@ -399,7 +380,7 @@ if search_block(f, TAGS, 'SURFACE_SECTION') > 0:
 
 
 # a_state = search_block(f, TAGS, 'NODESET_SECTION', print_tag=0)
-            
+
 # skip the first nstate-1 states
 cur_state = 0
 while check_block(f, TAGS, 'STATE'):
@@ -484,7 +465,7 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
                     vector[i, j] = struct.unpack('f', f.read(4))[0]
             savetxt(workdir+'%s.dat' % item_names[var_id-1], vector)
         else:
-            f.seek(a,1)
+            f.seek(a, 1)
     else:
         f.seek(a, 1)
 
@@ -511,15 +492,15 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
             print cur_pack
             cur_pack = struct.unpack('I', f.read(4))[0]
             print cur_pack
-            
+
             # junk = f.read(8)  # skip junk section
             # print junk
             scalar = zeros(n_data)
             for i in range(0, n_data):
                 scalar[i] = struct.unpack('f', f.read(4))[0]
-            savetxt(workdir+'%s.dat' %item_names[var_id-1], scalar)
+            savetxt(workdir+'%s.dat' % item_names[var_id-1], scalar)
         else:
-            f.seek(a,1)
+            f.seek(a, 1)
     # VEC3F
     elif item_types[var_id-1] == 1:
         n_data = int((a-8)/3/4)
@@ -531,14 +512,14 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
             cur_pack = struct.unpack('I', f.read(4))[0]
             print cur_pack
             # print '0x'+'{0:08x}'.format(cur_pack)
-            
+
             # junk = f.read(8)  # skip junk section
             # print junk
             vector = zeros([n_data, 3])
             for i in range(0, n_data):
                 for j in range(0, 3):
                     vector[i, j] = struct.unpack('f', f.read(4))[0]
-            savetxt(workdir+'%s.dat' %item_names[var_id-1], vector)
+            savetxt(workdir+'%s.dat' % item_names[var_id-1], vector)
         else:
             f.seek(a, 1)
     # MAT3FS (6 elements due to symmetry)
@@ -557,14 +538,14 @@ while check_block(f, TAGS, 'STATE_VARIABLE'):
             print cur_pack
             cur_pack = struct.unpack('I', f.read(4))[0]
             print cur_pack
-            
+
             # junk = f.read(16)  # skip junk section
             # print junk
             tensor = zeros([n_data, 6])
             for i in range(0, n_data):
                 for j in range(0, 6):
                     tensor[i, j] = struct.unpack('f', f.read(4))[0]
-            savetxt(workdir+'%s.dat' %item_names[var_id-1], tensor)
+            savetxt(workdir+'%s.dat' % item_names[var_id-1], tensor)
         else:
             f.seek(a, 1)
     else:
