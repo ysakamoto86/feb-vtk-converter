@@ -108,7 +108,7 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
         DataArray_xml = etree.SubElement(PointData_xml, "DataArray",
                                          type="Float32",
                                          NumberOfComponents=str(data_dim),
-                                         Name=ndfiles[i].split('.dat')[0])
+                                         Name=ndfiles[i].split('_')[0])
         DataArray_xml.text = '\n'+' '.join([repr(a) for a in
                                             node_data[i].flatten()])+'\n'
 
@@ -140,7 +140,7 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
         DataArray_xml = etree.SubElement(CellData_xml, "DataArray",
                                          type=data_type,
                                          NumberOfComponents=str(data_dim),
-                                         Name=elfiles[i].split('.dat')[0])
+                                         Name=elfiles[i].split('_')[0])
         DataArray_xml.text = '\n'+' '.join([repr(a) for a in
                                             elem_data[i].flatten()])+'\n'
 
@@ -181,22 +181,26 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
 
 
 ### INPUT
-if int(len(sys.argv) < 2):
+if int(len(sys.argv) < 3):
     print "Provide the work directory!"
     sys.exit(1)
 
 workdir = str(sys.argv[1])
+nstate = int(sys.argv[2])
+
 
 if workdir[-1] is not '/':
     workdir += '/'
 
 
-ndfiles = ['nodes.dat']
-elfiles = ['elements_0.dat', 'elements_1.dat', 'elements_2.dat']
-opfile = 'test.vtu'
+ndfiles = ['nodes_%d.dat' %nstate]
+elfiles = ['elements_%d_0.dat' %nstate, 'elements_%d_1.dat' %nstate,
+           'elements_%d_2.dat' %nstate]
+opfile = 'res_%d.vtu' %nstate
 
-nddfiles = ['displacement.dat', 'velocity.dat']
-eldfiles = ['vic-fiber.dat', 'relative volume.dat', 'stress.dat']
+nddfiles = ['displacement_%d.dat' %nstate, 'velocity_%d.dat' %nstate]
+eldfiles = ['vic-fiber_%d.dat' %nstate, 'relative volume_%d.dat'
+            %nstate, 'stress_%d.dat' %nstate]
 
 nodes, elems, n_elem_sub = load_data(workdir, ndfiles, elfiles)
 
