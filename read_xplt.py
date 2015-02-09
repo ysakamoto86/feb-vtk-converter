@@ -382,24 +382,25 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
     # a_state = search_block(f, TAGS, 'NODESET_SECTION', print_tag=0)
 
-    # skip the first nstate-1 states
+    # skip the first nstate states
     cur_state = 0
-    while check_block(f, TAGS, 'STATE', filesize=filesize):
-        cur_state += 1
+    while check_block(f, TAGS, 'STATE', filesize=filesize) &\
+          (cur_state < nstate):
         a_state = search_block(f, TAGS, 'STATE', print_tag=0)
 
         cur_cur = f.tell()
         a = search_block(f, TAGS, 'STATE_HEADER', print_tag=0)
+        # a = search_block(f, TAGS, 'STATE_HDR_ID', print_tag=0)
         a = search_block(f, TAGS, 'STATE_HDR_TIME', print_tag=0)
         time = struct.unpack('f', f.read(4))
-        # print 'This state is at %f time' % (time)
-        f.seek(cur_cur, 0)
+        print 'This state is at %f time' % (time)
+        f.seek(cur_cur+a_state, 0)
 
-        f.seek(a_state, 1)
-        if cur_state == (nstate-1):
-            break
+        # f.seek(a_state, 1)
 
-    if cur_state != (nstate-1):
+        cur_state += 1
+
+    if cur_state != nstate:
         print "State %d does not exist!" % nstate
         return -1
 
@@ -599,3 +600,7 @@ filename = str(sys.argv[2])
 nstate = int(sys.argv[3])  # read this state
 
 read_xplt(workdir, filename, nstate, TAGS)
+
+for nstate in range(30):
+
+    read_xplt(workdir, filename, nstate, TAGS)

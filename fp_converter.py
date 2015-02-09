@@ -47,6 +47,8 @@ def load_data(workdir, ndfiles, elfiles):
 def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
               elfiles, opfile):
 
+    output_file = workdir+opfile
+
     n_elems = len(elems)
 
     # element types (tet4, hex6, etc)
@@ -82,8 +84,7 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
                                                 data_dim))))
 
     ### OUTPUT
-
-    print "Outputting to the .vtu file..."
+    print "Outputting to %s..." % output_file
 
     # header
     root = etree.Element("VTKFile", type="UnstructuredGrid")
@@ -172,11 +173,9 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
     xml_str = prettify(root)
 
     # output
-    output_file = workdir+opfile
     f_out = open(output_file, 'w')
     f_out.write(xml_str)
     f_out.close()
-
 
 
 
@@ -188,22 +187,23 @@ if int(len(sys.argv) < 3):
 workdir = str(sys.argv[1])
 nstate = int(sys.argv[2])
 
+for nstate in range(30):
 
-if workdir[-1] is not '/':
-    workdir += '/'
-
-
-ndfiles = ['nodes_%d.dat' %nstate]
-elfiles = ['elements_%d_0.dat' %nstate, 'elements_%d_1.dat' %nstate,
-           'elements_%d_2.dat' %nstate]
-opfile = 'res_%d.vtu' %nstate
-
-nddfiles = ['displacement_%d.dat' %nstate, 'velocity_%d.dat' %nstate]
-eldfiles = ['vic-fiber_%d.dat' %nstate, 'relative volume_%d.dat'
-            %nstate, 'stress_%d.dat' %nstate]
-
-nodes, elems, n_elem_sub = load_data(workdir, ndfiles, elfiles)
+    if workdir[-1] is not '/':
+        workdir += '/'
 
 
-write_vtk(workdir, nodes, elems, n_elem_sub, nddfiles,
-          eldfiles, opfile)
+    ndfiles = ['nodes_%d.dat' %nstate]
+    elfiles = ['elements_%d_0.dat' %nstate, 'elements_%d_1.dat' %nstate,
+               'elements_%d_2.dat' %nstate]
+    opfile = 'res_%d.vtu' %nstate
+
+    nddfiles = ['displacement_%d.dat' %nstate, 'velocity_%d.dat' %nstate]
+    eldfiles = ['vic-fiber_%d.dat' %nstate, 'relative volume_%d.dat'
+                %nstate, 'stress_%d.dat' %nstate]
+
+    nodes, elems, n_elem_sub = load_data(workdir, ndfiles, elfiles)
+
+
+    write_vtk(workdir, nodes, elems, n_elem_sub, nddfiles,
+              eldfiles, opfile)
