@@ -488,66 +488,32 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
         a = search_block(f, TAGS, 'STATE_VAR_DATA')
         a_end = f.tell() + a
-        # FLOAT
-        if item_types[var_id - 1] == 0:
-
-            while(f.tell() < a_end):
-                dom_num = struct.unpack('I', f.read(4))[0]
-                d_size = struct.unpack('I', f.read(4))[0]
-                n_data = int(d_size / 1.0 / 4.0)
-                print 'number of data points for domain %s = %d'\
-                    % (dom_num, n_data)
-
-                if n_data > 0:
-                    scalar = zeros([n_data, 1])
-                    for i in range(0, n_data):
-                        for j in range(0, 1):
-                            scalar[i, j] = struct.unpack('f', f.read(4))[0]
-                    savetxt(workdir + '%s_%d_%d.dat'
-                            % (item_names[var_id - 1], nstate, dom_num - 1),
-                            scalar)
-
-        # VEC3F
-        elif item_types[var_id - 1] == 1:
-
-            while(f.tell() < a_end):
-
-                dom_num = struct.unpack('I', f.read(4))[0]
-                d_size = struct.unpack('I', f.read(4))[0]
-                n_data = int(d_size / 3.0 / 4.0)
-                print 'number of data points for domain %s = %d'\
-                    % (dom_num, n_data)
-
-                if n_data > 0:
-                    vector = zeros([n_data, 3])
-                    for i in range(0, n_data):
-                        for j in range(0, 3):
-                            vector[i, j] = struct.unpack('f', f.read(4))[0]
-                    savetxt(workdir + '%s_%d_%d.dat'
-                            % (item_names[var_id - 1], nstate, dom_num - 1),
-                            vector)
-
+        if item_types[var_id - 1] == 0:  # FLOAT
+            data_dim = 1
+        elif item_types[var_id - 1] == 1:  # VEC3F
+            data_dim = 3
         # MAT3FS (6 elements due to symmetry)
         elif item_types[var_id - 1] == 2:
-
-            while(f.tell() < a_end):
-
-                dom_num = struct.unpack('I', f.read(4))[0]
-                d_size = struct.unpack('I', f.read(4))[0]
-                n_data = int(d_size / 6.0 / 4.0)
-                print 'number of data points for domain %s = %d'\
-                    % (dom_num, n_data)
-
-                if n_data > 0:
-                    tensor = zeros([n_data, 6])
-                    for i in range(0, n_data):
-                        for j in range(0, 6):
-                            tensor[i, j] = struct.unpack('f', f.read(4))[0]
-                    savetxt(workdir + '%s_%d_%d.dat'
-                            % (item_names[var_id - 1], nstate, dom_num - 1),
-                            tensor)
+            data_dim = 6
         else:
-            f.seek(a, 1)
+            print 'unknwon data dimension!'
+            return -1
+
+        while(f.tell() < a_end):
+            dom_num = struct.unpack('I', f.read(4))[0]
+            d_size = struct.unpack('I', f.read(4))[0]
+            n_data = int(d_size / data_dim / 4.0)
+            print 'number of data points for domain %s = %d'\
+                % (dom_num, n_data)
+
+            if n_data > 0:
+                elem_data = zeros([n_data, data_dim])
+                for i in range(0, n_data):
+                    for j in range(0, data_dim):
+                        elem_data[i, j] = struct.unpack('f', f.read(4))[0]
+                savetxt(workdir + '%s_%d_%d.dat'
+                        % (item_names[var_id - 1], nstate, dom_num - 1),
+                        elem_data)
 
         if f.tell() >= filesize:
             break
