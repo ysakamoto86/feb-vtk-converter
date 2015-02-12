@@ -297,7 +297,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
     dom_elem_types = []
     dom_mat_ids = []
     dom_names = []
-    dom_elems = []  # number of elements for each domain
+    dom_n_elems = []  # number of elements for each domain
     dom_elements = []  # elements for each domain
     # NOTE: index starts from 0 (in .feb file, index starts from 1)
     while check_block(f, TAGS, 'DOMAIN'):
@@ -313,7 +313,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
         dom_mat_ids.append(int(struct.unpack('I', f.read(4))[0]))
 
         a = search_block(f, TAGS, 'DOM_ELEMS')
-        dom_elems.append(int(struct.unpack('I', f.read(4))[0]))
+        dom_n_elems.append(int(struct.unpack('I', f.read(4))[0]))
 
         # a = search_block(f, TAGS, 'DOM_NAME', verbose=1, inv_TAGS=inv_TAGS)
         # dom_names.append(int(struct.unpack('I', f.read(4))[0]))
@@ -487,76 +487,65 @@ def read_xplt(workdir, filename, nstate, TAGS):
         print 'variable_name:', item_names[var_id - 1]
 
         a = search_block(f, TAGS, 'STATE_VAR_DATA')
+        a_end = f.tell() + a
         # FLOAT
         if item_types[var_id - 1] == 0:
-            n_data = float(a - 8) / 4
-            print 'number of data points', n_data
 
-            n_data = int(n_data)
-            if n_data > 0:
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
+            while(f.tell() < a_end):
+                dom_num = struct.unpack('I', f.read(4))[0]
+                d_size = struct.unpack('I', f.read(4))[0]
+                n_data = int(d_size / 1.0 / 4.0)
+                print 'number of data points for domain %s = %d'\
+                    % (dom_num, n_data)
 
-                # junk = f.read(8)  # skip junk section
-                # print junk
-                scalar = zeros(n_data)
-                for i in range(0, n_data):
-                    scalar[i] = struct.unpack('f', f.read(4))[0]
-                savetxt(workdir + '%s_%d.dat' % (item_names[var_id - 1],
-                                                 nstate), scalar)
-            else:
-                f.seek(a, 1)
+                if n_data > 0:
+                    scalar = zeros([n_data, 1])
+                    for i in range(0, n_data):
+                        for j in range(0, 1):
+                            scalar[i, j] = struct.unpack('f', f.read(4))[0]
+                    savetxt(workdir + '%s_%d_%d.dat'
+                            % (item_names[var_id - 1], nstate, dom_num - 1),
+                            scalar)
+
         # VEC3F
         elif item_types[var_id - 1] == 1:
-            n_data = int((a - 8) / 3 / 4)
-            print 'number of data points', n_data
 
-            if n_data > 0:
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                # print '0x'+'{0:08x}'.format(cur_pack)
+            while(f.tell() < a_end):
 
-                # junk = f.read(8)  # skip junk section
-                # print junk
-                vector = zeros([n_data, 3])
-                for i in range(0, n_data):
-                    for j in range(0, 3):
-                        vector[i, j] = struct.unpack('f', f.read(4))[0]
-                savetxt(workdir + '%s_%d.dat' % (item_names[var_id - 1],
-                                                 nstate), vector)
-            else:
-                f.seek(a, 1)
+                dom_num = struct.unpack('I', f.read(4))[0]
+                d_size = struct.unpack('I', f.read(4))[0]
+                n_data = int(d_size / 3.0 / 4.0)
+                print 'number of data points for domain %s = %d'\
+                    % (dom_num, n_data)
+
+                if n_data > 0:
+                    vector = zeros([n_data, 3])
+                    for i in range(0, n_data):
+                        for j in range(0, 3):
+                            vector[i, j] = struct.unpack('f', f.read(4))[0]
+                    savetxt(workdir + '%s_%d_%d.dat'
+                            % (item_names[var_id - 1], nstate, dom_num - 1),
+                            vector)
+
         # MAT3FS (6 elements due to symmetry)
         elif item_types[var_id - 1] == 2:
-            junk_length = 16  # 16
-            n_data = int((a - junk_length) / 6 / 4)
-            print 'number of data points', n_data
 
-            # first two corresponds to the number of some element cur_pack/4/6
-            if n_data > 0:
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
+            while(f.tell() < a_end):
 
-                # junk = f.read(16)  # skip junk section
-                # print junk
-                tensor = zeros([n_data, 6])
-                for i in range(0, n_data):
-                    for j in range(0, 6):
-                        tensor[i, j] = struct.unpack('f', f.read(4))[0]
-                savetxt(workdir + '%s_%d.dat' % (item_names[var_id - 1],
-                                                 nstate), tensor)
-            else:
-                f.seek(a, 1)
+                dom_num = struct.unpack('I', f.read(4))[0]
+                d_size = struct.unpack('I', f.read(4))[0]
+                n_data = int(d_size / 6.0 / 4.0)
+                print 'number of data points for domain %s = %d'\
+                    % (dom_num, n_data)
+
+                if n_data > 0:
+                    tensor = zeros([n_data, 6])
+                    for i in range(0, n_data):
+                        for j in range(0, 6):
+                            tensor[i, j] = struct.unpack('f', f.read(4))[0]
+                    savetxt(workdir + '%s_%d_%d.dat'
+                            % (item_names[var_id - 1], nstate, dom_num - 1),
+                            tensor)
         else:
             f.seek(a, 1)
 
@@ -603,6 +592,6 @@ if __name__ == '__main__':
 
     read_xplt(workdir, filename, nstate, TAGS)
 
-    for nstate in range(13):
+    # for nstate in range(13):
 
-        read_xplt(workdir, filename, nstate, TAGS)
+    #     read_xplt(workdir, filename, nstate, TAGS)

@@ -191,7 +191,7 @@ if __name__ == '__main__':
         if workdir[-1] is not '/':
             workdir += '/'
 
-        ndfiles = ['nodes_%d.dat' % nstate]
+        # ndfiles = ['nodes_%d.dat' % nstate]
 
         # AFM
         # elfiles = ['elements_%d_0.dat' % nstate, 'elements_%d_1.dat' % nstate,
@@ -200,13 +200,14 @@ if __name__ == '__main__':
         # % nstate, 'stress_%d.dat' % nstate]
 
         # MA
+        ndfiles = ['nodes_%d.dat' % nstate]
         elfiles = ['elements_%d_0.dat' % nstate, 'elements_%d_1.dat' % nstate]
-        eldfiles = ['stress_%d.dat' % nstate]
-        opfile = 'res_%d.vtu' % nstate
-
         nddfiles = ['displacement_%d.dat' % nstate, 'velocity_%d.dat' % nstate]
+        eldfiles = ['stress_%d.dat' % nstate]
+
+        vtkfile = 'res_%d.vtu' % nstate
 
         nodes, elems, n_elem_sub = load_data(workdir, ndfiles, elfiles)
 
         write_vtk(workdir, nodes, elems, n_elem_sub, nddfiles,
-                  eldfiles, opfile)
+                  eldfiles, vtkfile)
