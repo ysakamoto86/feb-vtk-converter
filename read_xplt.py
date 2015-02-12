@@ -136,6 +136,46 @@ TAGS = {
 }
 
 
+ELEM_TYPE = {
+    'ELEM_HEX': 0,
+    'ELEM_PENTA': 1,
+    'ELEM_TET': 2,
+    'ELEM_QUAD': 3,
+    'ELEM_TRI': 4,
+    'ELEM_TRUSS': 5,
+    'ELEM_HEX20': 6,
+    'ELEM_TET10': 7,
+    'ELEM_TET15': 8,
+    'ELEM_HEX27': 8
+}
+
+
+def num_el_nodes(dom_elem_type, ELEM_TYPE):
+
+    if dom_elem_type == ELEM_TYPE['ELEM_HEX']:
+        ne = 8
+    elif dom_elem_type == ELEM_TYPE['ELEM_PENTA']:
+        ne = 6
+    elif dom_elem_type == ELEM_TYPE['ELEM_TET']:
+        ne = 4
+    elif dom_elem_type == ELEM_TYPE['ELEM_QUAD']:
+        ne = 4
+    elif dom_elem_type == ELEM_TYPE['ELEM_TRI']:
+        ne = 3
+    elif dom_elem_type == ELEM_TYPE['ELEM_TRUSS']:
+        ne = 2
+    elif dom_elem_type == ELEM_TYPE['ELEM_HEX20']:
+        ne = 20
+    elif dom_elem_type == ELEM_TYPE['ELEM_TET10']:
+        ne = 10
+    elif dom_elem_type == ELEM_TYPE['ELEM_TET15']:
+        ne = 15
+    elif dom_elem_type == ELEM_TYPE['ELEM_HEX27']:
+        ne = 27
+
+    return ne
+
+
 def search_block(f, TAGS, BLOCK_TAG, max_depth=5, cur_depth=0,
                  verbose=0, inv_TAGS=0, print_tag=0):
     '''Search some block in the current level.'''
@@ -319,12 +359,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
         a = search_block(f, TAGS, 'DOM_ELEM_LIST')
 
-        if dom_elem_type == 1:    # penta6
-            ne = 6
-        elif dom_elem_type == 2:  # tet4
-            ne = 4
-        elif dom_elem_type == 4:  # tri3
-            ne = 3
+        ne = num_el_nodes(dom_elem_type, ELEM_TYPE)
         elements = []
         while check_block(f, TAGS, 'ELEMENT'):
             a = search_block(f, TAGS, 'ELEMENT', print_tag=0)
@@ -525,6 +560,10 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
     if f.tell() == filesize:
         print 'EOF reached.'
+
+    # save element types for each subdomain
+    savetxt(workdir + 'element_types_%d.dat' % (nstate),
+            dom_elem_types, fmt='%d')
 
     # a = search_block(f, TAGS, 'ROOT', verbose=1, inv_TAGS=inv_TAGS)
 

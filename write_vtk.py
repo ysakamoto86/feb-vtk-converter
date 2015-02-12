@@ -1,11 +1,32 @@
 import sys
 import os
 from subprocess import call
+
 import xml.etree.ElementTree as etree
-import numpy as np
-# from lxml import etree
-import pdb
 import xml.dom.minidom as minidom
+# from lxml import etree
+
+import numpy as np
+
+from read_xplt import ELEM_TYPE
+
+import pdb
+
+
+def el_type_number(feb_elem_type):
+
+    if feb_elem_type == ELEM_TYPE['ELEM_HEX']:
+        vtk_elem_type = 12
+    elif feb_elem_type == ELEM_TYPE['ELEM_PENTA']:
+        vtk_elem_type = 12
+    elif feb_elem_type == ELEM_TYPE['ELEM_TET']:
+        vtk_elem_type = 10
+    elif feb_elem_type == ELEM_TYPE['ELEM_QUAD']:
+        vtk_elem_type = 9
+    elif feb_elem_type == ELEM_TYPE['ELEM_TRI']:
+        vtk_elem_type = 5
+
+    return vtk_elem_type
 
 
 def prettify(elem):
@@ -29,20 +50,16 @@ def load_geom(workdir, ndfiles, elfiles):
     for elf in elfiles:
         elems.append(np.loadtxt(workdir + elf + '.dat', dtype=int)[:, 1:])
 
+    # append nodes
     if len(ndfiles) < 2:
         node_coords = nodes[0]
     else:
         for i in range(len(ndfiles) - 1):
             node_coords = np.vstack((nodes[i], nodes[i + 1]))
 
-    dom_n_elems = [len(elems[0])]
-    elem_conns = elems[0]
-    if len(elfiles) > 1:
-        for i in range(len(elfiles) - 1):
-            elem_conns = np.vstack((elem_conns, elems[i + 1]))
-            dom_n_elems.append(len(elems[i + 1]))
+    dom_n_elems = map(len, elems)
 
-    return node_coords, elem_conns, dom_n_elems
+    return node_coords, elems, dom_n_elems
 
 
 def load_data(workdir, nstate, ndd_names, eld_names):
@@ -109,10 +126,6 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
 
     n_elems = len(elems)
 
-    # element types (tet4, hex6, etc)
-    elem_types = np.ones(n_elems, dtype=int) * 10
-    offsets = np.array(range(4, n_elems * 4 + 1, 4), dtype=int)
-
     # material type (subdomain number)
     mat_types = []
     for i in range(len(dom_n_elems)):
@@ -129,7 +142,7 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
 
     Piece_xml = etree.SubElement(UnstructuredGrid_xml, "Piece",
                                  NumberOfPoints=str(len(nodes)),
-                                 NumberOfCells=str(len(elems)))
+                                 NumberOfCells=str(sum(dom_n_elems)))
 
     # PointData_xml = etree.SubElement(Piece_xml, "PointData",
     # Vectors="displacement")
@@ -188,17 +201,33 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
     DataArray_xml = etree.SubElement(Cells_xml, "DataArray",
                                      type="Int32",
                                      Name="connectivity")
-    DataArray_xml.text = '\n' + ' '.join([`a` for a in elems.flatten()]) + '\n'
+    elem_conns = ''
+    for i in range(len(elems)):
+        elem_conns += '\n' + ' '.join([`a` for a in elems[i].flatten()]) + '\n'
+    DataArray_xml.text = elem_conns
 
     DataArray_xml = etree.SubElement(Cells_xml, "DataArray",
                                      type="Int32",
                                      Name="offsets")
-    DataArray_xml.text = '\n' + ' '.join([`a` for a in offsets]) + '\n'
+    elem_offs = []
+    for i in range(len(elems)):
+        elem_offs += [len(a) for a in elems[i]]
+    elem_offs = np.cumsum(elem_offs)
+    DataArray_xml.text = '\n' + ' '.join([`a` for a in elem_offs]) + '\n'
 
     DataArray_xml = etree.SubElement(Cells_xml, "DataArray",
                                      type="UInt8",
                                      Name="types")
-    DataArray_xml.text = '\n' + ' '.join([`a` for a in elem_types]) + '\n'
+
+    # assume that each subdomain only consists of the same element type
+    dom_elem_types = np.loadtxt(
+        workdir + 'element_types_%d.dat' % nstate, dtype=int)
+    dom_elem_types = map(el_type_number, dom_elem_types)
+    elem_types = ''
+    for i in range(len(dom_elem_types)):
+        elem_types += '\n' + \
+            ' '.join([str(dom_elem_types[i])] * dom_n_elems[i]) + '\n'
+    DataArray_xml.text = elem_types
 
     # xml_str = etree.tostring(root, encoding='ISO-8859-1',
     # pretty_print="true")
@@ -241,9 +270,8 @@ if __name__ == '__main__':
         # ECM-comp
         ndfiles = ['nodes_%d' % nstate]
         elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
-        ndd_names = ['displacement', 'velocity']
-        eld_names = ['effective fluid pressure', 'fluid flux',
-                     'stress', 'relative volume']
+        ndd_names = ['displacement', 'velocity', 'effective fluid pressure']
+        eld_names = ['fluid flux', 'stress', 'relative volume']
 
         vtkfile = 'res_%d.vtu' % nstate
 
