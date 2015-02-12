@@ -1,4 +1,5 @@
 import sys
+import os
 from subprocess import call
 import xml.etree.ElementTree as etree
 import numpy as np
@@ -17,37 +18,94 @@ def prettify(elem):
     return reparsed.toprettyxml(indent="\t")
 
 
-def load_data(workdir, ndfiles, elfiles):
+def load_geom(workdir, ndfiles, elfiles):
 
     nodes = []
     elems = []
 
     # load data
     for ndf in ndfiles:
-        nodes.append(np.loadtxt(workdir + ndf))
+        nodes.append(np.loadtxt(workdir + ndf + '.dat'))
     for elf in elfiles:
-        elems.append(np.loadtxt(workdir + elf, dtype=int)[:, 1:])
+        elems.append(np.loadtxt(workdir + elf + '.dat', dtype=int)[:, 1:])
 
     if len(ndfiles) < 2:
-        node_data = nodes[0]
+        node_coords = nodes[0]
     else:
         for i in range(len(ndfiles) - 1):
-            node_data = np.vstack((nodes[i], nodes[i + 1]))
+            node_coords = np.vstack((nodes[i], nodes[i + 1]))
 
-    n_elem_sub = [len(elems[0])]
-    elem_data = elems[0]
+    dom_n_elems = [len(elems[0])]
+    elem_conns = elems[0]
     if len(elfiles) > 1:
         for i in range(len(elfiles) - 1):
-            elem_data = np.vstack((elem_data, elems[i + 1]))
-            n_elem_sub.append(len(elems[i + 1]))
+            elem_conns = np.vstack((elem_conns, elems[i + 1]))
+            dom_n_elems.append(len(elems[i + 1]))
 
-    return node_data, elem_data, n_elem_sub
+    return node_coords, elem_conns, dom_n_elems
 
 
-def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
-              elfiles, opfile):
+def load_data(workdir, nstate, ndd_names, eld_names):
 
-    output_file = workdir + opfile
+    # load node data
+    node_data = []
+    # assumption: node data is define on all the nodes
+    for nf in ndd_names:
+        filename = workdir + '%s_%d.dat' % (nf, nstate)
+        node_data.append(np.loadtxt(filename))
+
+    # get element data files
+    elem_files = []
+    elem_data = []
+    data_dims = [0] * len(eld_names)
+    k = 0
+    for eldn in eld_names:
+        elf = []
+        eld = []
+        for i in range(len(dom_n_elems)):
+            filename = workdir + '%s_%d_%d.dat' % (eldn, nstate, i)
+            if os.path.isfile(filename):
+                elf.append(filename)
+                eld.append(np.loadtxt(filename))
+
+                if eld[i].ndim == 1:
+                    data_dims[k] = 1
+                    eld[i] = np.array([eld[i]]).T
+                else:
+                    data_dims[k] = len(eld[i][0])
+
+            else:
+                elf.append('')
+                eld.append([])
+
+        elem_files.append(elf)
+        elem_data.append(eld)
+        k += 1
+
+    # fill zeros to the empty data
+    for i in range(len(elem_data)):
+        for j in range(len(elem_data[i])):
+
+            if len(elem_data[i][j]) == 0:
+                elem_data[i][j] = np.zeros([dom_n_elems[j], data_dims[i]])
+
+    # merge the element data together
+    elem_data_merge = [0] * len(elem_data)
+    for i in range(len(elem_data)):
+
+        elem_data_merge[i] = elem_data[i][0]
+
+        for j in range(1, len(elem_data[i])):
+            elem_data_merge[i] = np.vstack(
+                (elem_data_merge[i], elem_data[i][j]))
+
+    return node_data, elem_data_merge
+
+
+def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
+              ndd_names, eld_names, vtkfile):
+
+    output_file = workdir + vtkfile
 
     n_elems = len(elems)
 
@@ -57,31 +115,9 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
 
     # material type (subdomain number)
     mat_types = []
-    for i in range(len(n_elem_sub)):
-        mat_types += [i] * n_elem_sub[i]
+    for i in range(len(dom_n_elems)):
+        mat_types += [i] * dom_n_elems[i]
     mat_types = np.array(mat_types, dtype=int)
-
-    # load point data
-    node_data = []
-    for nf in ndfiles:
-        node_data.append(np.loadtxt(workdir + nf))
-
-    # load element data
-    elem_data = []
-    for ef in elfiles:
-        elem_data.append(np.loadtxt(workdir + ef))
-
-    # append zeros to the element data
-    # NOTE: we assume that the data is defined in the first whatever elements
-    for i in range(len(elem_data)):
-        if len(elem_data[i]) < n_elems:
-            if elem_data[i].ndim == 1:
-                data_dim = 1
-            else:
-                data_dim = len(elem_data[i][0])
-            elem_data[i] = np.vstack((elem_data[i],
-                                      np.zeros((n_elems - len(elem_data[i]),
-                                                data_dim))))
 
     # OUTPUT
     print "Outputting to %s..." % output_file
@@ -101,15 +137,12 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
     PointData_xml = etree.SubElement(Piece_xml, "PointData")
 
     for i in range(len(ndfiles)):
-        if node_data[i].ndim == 1:
-            data_dim = 1
-        else:
-            data_dim = len(node_data[i][0])
+        data_dim = len(node_data[i][0])
 
         DataArray_xml = etree.SubElement(PointData_xml, "DataArray",
                                          type="Float32",
                                          NumberOfComponents=str(data_dim),
-                                         Name=ndfiles[i].split('_')[0])
+                                         Name=ndd_names[i])
         DataArray_xml.text = '\n' + ' '.join([repr(a) for a in
                                               node_data[i].flatten()]) + '\n'
 
@@ -126,7 +159,7 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
         if elem_data[i].ndim == 1:
             data_dim = 1
             # febio bug? number of dimension does not match
-            elem_data[i] = elem_data[i][:n_elems]
+            # elem_data[i] = elem_data[i][:n_elems]
         else:
             data_dim = len(elem_data[i][0])
 
@@ -141,7 +174,7 @@ def write_vtk(workdir, nodes, elems, n_elem_sub, ndfiles,
         DataArray_xml = etree.SubElement(CellData_xml, "DataArray",
                                          type=data_type,
                                          NumberOfComponents=str(data_dim),
-                                         Name=elfiles[i].split('_')[0])
+                                         Name=eld_names[i])
         DataArray_xml.text = '\n' + ' '.join([repr(a) for a in
                                               elem_data[i].flatten()]) + '\n'
 
@@ -186,7 +219,7 @@ if __name__ == '__main__':
     workdir = str(sys.argv[1])
     nstate = int(sys.argv[2])
 
-    for nstate in range(13):
+    for nstate in [10]:  # range(13):
 
         if workdir[-1] is not '/':
             workdir += '/'
@@ -200,14 +233,16 @@ if __name__ == '__main__':
         # % nstate, 'stress_%d.dat' % nstate]
 
         # MA
-        ndfiles = ['nodes_%d.dat' % nstate]
-        elfiles = ['elements_%d_0.dat' % nstate, 'elements_%d_1.dat' % nstate]
-        nddfiles = ['displacement_%d.dat' % nstate, 'velocity_%d.dat' % nstate]
-        eldfiles = ['stress_%d.dat' % nstate]
+        ndfiles = ['nodes_%d' % nstate]
+        elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate,
+                   'elements_%d_2' % nstate]
+        ndd_names = ['displacement', 'velocity']
+        eld_names = ['relative volume', 'stress']
 
         vtkfile = 'res_%d.vtu' % nstate
 
-        nodes, elems, n_elem_sub = load_data(workdir, ndfiles, elfiles)
+        nodes, elems, dom_n_elems = load_geom(workdir, ndfiles, elfiles)
+        node_data, elem_data = load_data(workdir, nstate, ndd_names, eld_names)
 
-        write_vtk(workdir, nodes, elems, n_elem_sub, nddfiles,
-                  eldfiles, vtkfile)
+        write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
+                  elem_data, ndd_names, eld_names, vtkfile)

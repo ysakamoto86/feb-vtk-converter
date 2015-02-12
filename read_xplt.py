@@ -286,7 +286,6 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
     a = search_block(f, TAGS, 'NODE_COORDS')
     n_nodes = int(a / 3 / 4)
-    print 'number of nodes:', n_nodes
     node_coords = zeros([n_nodes, 3])
     for i in range(n_nodes):
         for j in range(0, 3):
@@ -433,48 +432,34 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
         a = search_block(f, TAGS, 'STATE_VAR_DATA')
 
-        # FLOAT
-        if item_types[var_id - 1] == 0:
-            n_data = int((a - 8) / 4)
-            print 'number of data points', n_data
-
-            if n_data > 0:
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print '0x' + '{0:08x}'.format(cur_pack)
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print '0x' + '{0:08x}'.format(cur_pack)
-
-                # f.read(8)  # skip junk section
-                scalar = zeros(n_data)
-                for i in range(0, n_data):
-                    scalar[i] = struct.unpack('f', f.read(4))[0]
-                savetxt(workdir + '%s_%d.dat' % (item_names[var_id - 1],
-                                                 nstate), scalar)
-            else:
-                f.seek(a, 1)
-
-        # VEC3F
-        elif item_types[var_id - 1] == 1:
-            n_data = int((a - 8) / 3 / 4)
-            print 'number of data points', n_data
-
-            if n_data > 0:
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-                cur_pack = struct.unpack('I', f.read(4))[0]
-                print cur_pack
-
-                # f.read(8)  # skip junk section
-                vector = zeros([n_data, 3])
-                for i in range(0, n_data):
-                    for j in range(0, 3):
-                        vector[i, j] = struct.unpack('f', f.read(4))[0]
-                savetxt(workdir + '%s_%d.dat' % (item_names[var_id - 1],
-                                                 nstate), vector)
-            else:
-                f.seek(a, 1)
+        a_end = f.tell() + a
+        if item_types[var_id - 1] == 0:  # FLOAT
+            data_dim = 1
+        elif item_types[var_id - 1] == 1:  # VEC3F
+            data_dim = 3
+        # MAT3FS (6 elements due to symmetry)
+        elif item_types[var_id - 1] == 2:
+            data_dim = 6
         else:
-            f.seek(a, 1)
+            print 'unknwon data dimension!'
+            return -1
+
+        # assumption: node data is defined for all the ndoes
+        while(f.tell() < a_end):
+            dom_num = struct.unpack('I', f.read(4))[0]
+            data_size = struct.unpack('I', f.read(4))[0]
+            n_data = int(data_size / data_dim / 4.0)
+            print 'number of node data for domain %s = %d'\
+                % (dom_num, n_data)
+
+            if n_data > 0:
+                elem_data = zeros([n_data, data_dim])
+                for i in range(0, n_data):
+                    for j in range(0, data_dim):
+                        elem_data[i, j] = struct.unpack('f', f.read(4))[0]
+                savetxt(workdir + '%s_%d.dat'
+                        % (item_names[var_id - 1], nstate),
+                        elem_data)
 
     a = search_block(f, TAGS, 'ELEMENT_DATA')
     while check_block(f, TAGS, 'STATE_VARIABLE'):
@@ -501,9 +486,9 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
         while(f.tell() < a_end):
             dom_num = struct.unpack('I', f.read(4))[0]
-            d_size = struct.unpack('I', f.read(4))[0]
-            n_data = int(d_size / data_dim / 4.0)
-            print 'number of data points for domain %s = %d'\
+            data_size = struct.unpack('I', f.read(4))[0]
+            n_data = int(data_size / data_dim / 4.0)
+            print 'number of element data for domain %s = %d'\
                 % (dom_num, n_data)
 
             if n_data > 0:
