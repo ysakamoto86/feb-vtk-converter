@@ -541,8 +541,7 @@ if __name__ == '__main__':
     filename = str(sys.argv[2])
     nstate = int(sys.argv[3])  # read this state
 
-    read_xplt(workdir, filename, nstate, TAGS)
+    # read_xplt(workdir, filename, nstate, TAGS)
 
-    # for nstate in range(13):
-
-    #     read_xplt(workdir, filename, nstate, TAGS)
+    for nstate in [10]:  # range(101):
+        read_xplt(workdir, filename, nstate, TAGS)

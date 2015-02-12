@@ -219,7 +219,7 @@ if __name__ == '__main__':
     workdir = str(sys.argv[1])
     nstate = int(sys.argv[2])
 
-    for nstate in [10]:  # range(13):
+    for nstate in [10]:  # range(101):
 
         if workdir[-1] is not '/':
             workdir += '/'
@@ -232,12 +232,18 @@ if __name__ == '__main__':
         # eldfiles = ['vic-fiber_%d.dat' % nstate, 'relative volume_%d.dat'
         # % nstate, 'stress_%d.dat' % nstate]
 
-        # MA
+        # # MA
+        # ndfiles = ['nodes_%d' % nstate]
+        # elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
+        # ndd_names = ['displacement', 'velocity']
+        # eld_names = ['relative volume', 'stress']
+
+        # ECM-comp
         ndfiles = ['nodes_%d' % nstate]
-        elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate,
-                   'elements_%d_2' % nstate]
+        elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
         ndd_names = ['displacement', 'velocity']
-        eld_names = ['relative volume', 'stress']
+        eld_names = ['effective fluid pressure', 'fluid flux',
+                     'stress', 'relative volume']
 
         vtkfile = 'res_%d.vtu' % nstate
 
