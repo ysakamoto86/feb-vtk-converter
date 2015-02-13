@@ -486,7 +486,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
             dom_num = struct.unpack('I', f.read(4))[0]
             data_size = struct.unpack('I', f.read(4))[0]
             n_data = int(data_size / data_dim / 4.0)
-            def_doms.append(dom_num)
+            def_doms.append(dom_num - 1)
 
             print 'number of node data for domain %s = %d'\
                 % (dom_num, n_data)
@@ -530,7 +530,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
             dom_num = struct.unpack('I', f.read(4))[0]
             data_size = struct.unpack('I', f.read(4))[0]
             n_data = int(data_size / data_dim / 4.0)
-            def_doms.append(dom_num)
+            def_doms.append(dom_num - 1)
             print 'number of element data for domain %s = %d'\
                 % (dom_num, n_data)
 
