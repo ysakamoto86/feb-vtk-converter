@@ -250,6 +250,10 @@ def seek_block(f, TAGS, BLOCK_TAG):
 
 def read_xplt(workdir, filename, nstate, TAGS):
 
+    # output files to be returned
+    ndfiles = []
+    elfiles = []
+
     if workdir[-1] is not '/':
         workdir += '/'
 
@@ -331,6 +335,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
         for j in range(0, 3):
             node_coords[i, j] = struct.unpack('f', f.read(4))[0]
     savetxt(workdir + 'nodes_%d.dat' % nstate, node_coords)
+    ndfiles.append('nodes_%d' % nstate)
 
     a = search_block(f, TAGS, 'DOMAIN_SECTION')
     dom_elem_types = []
@@ -373,6 +378,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
     for i in range(len(dom_elements)):
         savetxt(workdir + 'elements_%d_%d.dat' % (nstate, i),
                 dom_elements[i], fmt='%d')
+        elfiles.append('elements_%d_%d' % (nstate, i))
 
     print f.tell()
     if search_block(f, TAGS, 'SURFACE_SECTION') > 0:
@@ -589,6 +595,8 @@ def read_xplt(workdir, filename, nstate, TAGS):
     # a = search_block(f, TAGS, 'ROOT', verbose=1, inv_TAGS=inv_TAGS)
 
     f.close()
+
+    return ndfiles, elfiles
 
 
 if __name__ == '__main__':
