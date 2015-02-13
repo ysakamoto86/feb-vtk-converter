@@ -18,14 +18,9 @@ if workdir[-1] is not '/':
 
 
 for nst in [nstate]:  # range(num_states):
-
-    rx.read_xplt(workdir, filename, nst, rx.TAGS)
-
-    # MA
-    ndfiles = ['nodes_%d' % nst]
-    elfiles = ['elements_%d_0' % nst, 'elements_%d_1' % nst]
-
     vtkfile = 'res_%d.vtu' % nst
+
+    ndfiles, elfiles = rx.read_xplt(workdir, filename, nst, rx.TAGS)
 
     nodes, elems, dom_n_elems \
         = wv.load_geom(workdir, ndfiles, elfiles)
