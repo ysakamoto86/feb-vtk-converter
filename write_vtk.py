@@ -76,23 +76,24 @@ def load_data(workdir, nstate, n_subdomains):
                                dtype='str', delimiter='\n')
 
     # load node data
-    node_data = []
-    # assumption: node data is define on all the nodes
-    for nf in item_names[:2]:
-        filename = workdir + '%s_%d.dat' % (nf, nstate)
-        node_data.append(np.loadtxt(filename))
-
     item_def_doms = []
     with open(workdir + 'item_def_doms_%d.dat' % nstate, 'r') as f:
         for line in f:
             item_def_doms.append(map(int, line[:-2].split(' ')))
 
+    # assumption: node data is define on all the nodes
+    n_node_data = item_def_doms.count([-1])
+    node_data = []
+    for nf in item_names[:n_node_data]:
+        filename = workdir + '%s_%d.dat' % (nf, nstate)
+        node_data.append(np.loadtxt(filename))
+
     # load element data
     elem_files = []
     elem_data = []
-    data_dims = [0] * (len(item_names) - 2)
+    data_dims = [0] * (len(item_names) - n_node_data)
     k = 0
-    for eldn in item_names[2:]:
+    for eldn in item_names[n_node_data:]:
         elf = []
         eld = []
         for i in range(n_subdomains):
