@@ -63,14 +63,7 @@ def load_geom(workdir, ndfiles, elfiles):
     return node_coords, elems, dom_n_elems
 
 
-def load_data(workdir, nstate, ndd_names, eld_names):
-
-    # load node data
-    node_data = []
-    # assumption: node data is define on all the nodes
-    for nf in ndd_names:
-        filename = workdir + '%s_%d.dat' % (nf, nstate)
-        node_data.append(np.loadtxt(filename))
+def load_data(workdir, nstate, n_subdomains):
 
     # load miscelleneous data
     dom_elem_types = np.loadtxt(workdir + 'element_types_%d.dat' %
@@ -82,6 +75,13 @@ def load_data(workdir, nstate, ndd_names, eld_names):
     item_names = np.genfromtxt(workdir + 'item_names_%d.dat' % nstate,
                                dtype='str', delimiter='\n')
 
+    # load node data
+    node_data = []
+    # assumption: node data is define on all the nodes
+    for nf in item_names[:2]:
+        filename = workdir + '%s_%d.dat' % (nf, nstate)
+        node_data.append(np.loadtxt(filename))
+
     item_def_doms = []
     with open(workdir + 'item_def_doms_%d.dat' % nstate, 'r') as f:
         for line in f:
@@ -90,12 +90,12 @@ def load_data(workdir, nstate, ndd_names, eld_names):
     # load element data
     elem_files = []
     elem_data = []
-    data_dims = [0] * len(eld_names)
+    data_dims = [0] * (len(item_names) - 2)
     k = 0
-    for eldn in eld_names:
+    for eldn in item_names[2:]:
         elf = []
         eld = []
-        for i in range(len(dom_n_elems)):
+        for i in range(n_subdomains):
             filename = workdir + '%s_%d_%d.dat' % (eldn, nstate, i)
             if os.path.isfile(filename):
                 elf.append(filename)
@@ -115,30 +115,13 @@ def load_data(workdir, nstate, ndd_names, eld_names):
         elem_data.append(eld)
         k += 1
 
-    # fill zeros to the empty data
-    # for i in range(len(elem_data)):
-    #     for j in range(len(elem_data[i])):
-
-        # if len(elem_data[i][j]) == 0:
-        #     elem_data[i][j] = np.zeros([dom_n_elems[j], data_dims[i]])
-
-    # merge the element data together
-    # elem_data_merge = [0] * len(elem_data)
-    # for i in range(len(elem_data)):
-
-    #     elem_data_merge[i] = elem_data[i][0]
-
-    #     for j in range(1, len(elem_data[i])):
-    #         elem_data_merge[i] = np.vstack(
-    #             (elem_data_merge[i], elem_data[i][j]))
-
     return node_data, elem_data,\
         dom_elem_types, item_formats, item_names, item_def_doms, data_dims
 
 
 def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
-              elem_data, ndd_names, eld_names, dom_elem_types,
-              item_formats, item_names, item_def_doms, vtkfile):
+              elem_data, dom_elem_types, item_formats, item_names,
+              item_def_doms, data_dims, vtkfile):
 
     output_file = workdir + vtkfile
 
@@ -162,20 +145,25 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
 
     PointData_xml = etree.SubElement(Piece_xml, "PointData")
 
-    for i in range(len(ndd_names)):
+    for i in range(len(node_data)):
         data_dim = len(node_data[i][0])
 
         DataArray_xml = etree.SubElement(PointData_xml, "DataArray",
                                          type="Float32",
                                          NumberOfComponents=str(data_dim),
-                                         Name=ndd_names[i])
+                                         Name=item_names[i])
         DataArray_xml.text = '\n' + ' '.join([repr(a) for a in
                                               node_data[i].flatten()]) + '\n'
 
     # for each node parameter
-    for i in range(len(eld_names)):
-        if item_formats[i + len(ndd_names)] == 0:
-            def_doms = item_def_doms[i + len(ndd_names)]
+    for i in range(len(elem_data)):
+        if item_formats[i + len(node_data)] == 0:
+            def_doms = item_def_doms[i + len(node_data)]
+
+            # skip for undefined parameter
+            if def_doms == [-2]:
+                continue
+
             nodes_set = set([])
             # fill zeros to the empty data
             node_data_all = np.zeros([len(nodes), data_dims[i]])
@@ -186,16 +174,16 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
             for j in def_doms:
                 nodes_set += list(elems[j].flatten())
 
-            # remove duplicates while preserving order
-            nodes_set = list(OrderedDict.fromkeys(nodes_set))
-            for k in range(len(nodes_set)):
-                node_data_all[nodes_set[k]] = elem_data[i][j][k]
+                # remove duplicates while preserving order
+                nodes_set = list(OrderedDict.fromkeys(nodes_set))
+                for k in range(len(nodes_set)):
+                    node_data_all[nodes_set[k]] = elem_data[i][j][k]
 
             DataArray_xml \
                 = etree.SubElement(PointData_xml, "DataArray",
                                    type="Float32",
                                    NumberOfComponents=str(data_dims[i]),
-                                   Name=eld_names[i])
+                                   Name=item_names[i + len(node_data)])
             DataArray_xml.text \
                 = '\n' + ' '.join([repr(a) for a in
                                    node_data_all.flatten()]) + '\n'
@@ -210,9 +198,12 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
     DataArray_xml.text = '\n' + ' '.join([`a` for a in mat_types]) + '\n'
 
     # for each element parameter
-    for i in range(len(eld_names)):
-        if item_formats[i + len(ndd_names)] == 1:
-            def_doms = item_def_doms[i + len(ndd_names)]
+    for i in range(len(elem_data)):
+        if item_formats[i + len(node_data)] == 1:
+            def_doms = item_def_doms[i + len(node_data)]
+            # skip for undefined parameter
+            if def_doms == [-2]:
+                continue
 
             # gather all the 'defined' element values from the
             # subdomains
@@ -240,32 +231,8 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
                 = etree.SubElement(CellData_xml, "DataArray",
                                    type=data_type,
                                    NumberOfComponents=str(data_dims[i]),
-                                   Name=eld_names[i])
+                                   Name=item_names[i + len(node_data)])
             DataArray_xml.text = eld_txt
-
-    # # elem_data[1] = mat_types
-    # for i in range(len(elem_data)):
-    #     if elem_data[i].ndim == 1:
-    #         data_dim = 1
-    #         # febio bug? number of dimension does not match
-    #         # elem_data[i] = elem_data[i][:n_elems]
-    #     else:
-    #         data_dim = len(elem_data[i][0])
-
-    #     data_type = str(elem_data[i].dtype)
-    #     if 'int' in data_type:
-    #         data_type = "Int64"
-    #     elif 'float' in data_type:
-    #         data_type = "Float64"
-    #     else:
-    #         data_type = "Float64"
-
-    #     DataArray_xml = etree.SubElement(CellData_xml, "DataArray",
-    #                                      type=data_type,
-    #                                      NumberOfComponents=str(data_dim),
-    #                                      Name=eld_names[i])
-    #     DataArray_xml.text = '\n' + ' '.join([repr(a) for a in
-    #                                           elem_data[i].flatten()]) + '\n'
 
     Points_xml = etree.SubElement(Piece_xml, "Points")
     DataArray_xml = etree.SubElement(Points_xml, "DataArray",
@@ -335,27 +302,21 @@ if __name__ == '__main__':
         # eldfiles = ['vic-fiber_%d.dat' % nstate, 'relative volume_%d.dat'
         # % nstate, 'stress_%d.dat' % nstate]
 
-        # # MA
-        # ndfiles = ['nodes_%d' % nstate]
-        # elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
-        # ndd_names = ['displacement', 'velocity']
-        # eld_names = ['relative volume', 'stress']
-
-        # ECM-comp
+        # MA
         ndfiles = ['nodes_%d' % nstate]
         elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
-        ndd_names = ['displacement', 'velocity']
-        eld_names = ['effective fluid pressure',
-                     'fluid flux', 'stress', 'relative volume']
+
+        # ECM-comp
+        # ndfiles = ['nodes_%d' % nstate]
+        # elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
 
         vtkfile = 'res_%d.vtu' % nstate
 
         nodes, elems, dom_n_elems = load_geom(workdir, ndfiles, elfiles)
         node_data, elem_data, dom_elem_types, \
             item_formats, item_names, item_def_doms, data_dims\
-            = load_data(workdir, nstate, ndd_names,
-                        eld_names)
+            = load_data(workdir, nstate)
 
         write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
-                  elem_data, ndd_names, eld_names, dom_elem_types,
-                  item_formats, item_names, item_def_doms, vtkfile)
+                  elem_data, dom_elem_types, item_formats, item_names,
+                  item_def_doms, vtkfile)

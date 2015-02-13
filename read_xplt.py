@@ -580,6 +580,8 @@ def read_xplt(workdir, filename, nstate, TAGS):
             item_names, fmt='%s')
     with open(workdir + 'item_def_doms_%d.dat' % (nstate), 'w') as f:
         for idd in item_def_doms:
+            if idd == []:
+                idd = [-2]
             for dd in idd:
                 f.write(str(dd) + ' ')
             f.write('\n')
