@@ -62,7 +62,7 @@ def load_geom(workdir, ndfiles, elfiles):
     return node_coords, elems, dom_n_elems
 
 
-def load_data(workdir, nstate, ndd_names, eld_names):
+def load_data(workdir, nstate, ndd_names, eld_names, elndd_names):
 
     # load node data
     node_data = []
@@ -116,15 +116,29 @@ def load_data(workdir, nstate, ndd_names, eld_names):
             elem_data_merge[i] = np.vstack(
                 (elem_data_merge[i], elem_data[i][j]))
 
-    return node_data, elem_data_merge
+    dom_elem_types = np.loadtxt(workdir + 'element_types_%d.dat' %
+                                nstate, dtype=int)
+
+    item_formats = np.loadtxt(workdir + 'item_format_%d.dat' % nstate,
+                              dtype=int)
+
+    item_names = np.genfromtxt(workdir + 'item_names_%d.dat' % nstate,
+                               dtype='str', delimiter='\n')
+
+    item_def_doms = []
+    with open(workdir + 'item_def_doms_%d.dat' % nstate, 'r') as f:
+        for line in f:
+            item_def_doms.append(map(int, line[:-2].split(' ')))
+
+    return node_data, elem_data_merge,\
+        dom_elem_types, item_formats, item_names, item_def_doms
 
 
-def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
-              ndd_names, eld_names, vtkfile):
+def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
+              elem_data, ndd_names, eld_names, dom_elem_types,
+              item_formats, item_names, vtkfile):
 
     output_file = workdir + vtkfile
-
-    n_elems = len(elems)
 
     # material type (subdomain number)
     mat_types = []
@@ -144,12 +158,9 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
                                  NumberOfPoints=str(len(nodes)),
                                  NumberOfCells=str(sum(dom_n_elems)))
 
-    # PointData_xml = etree.SubElement(Piece_xml, "PointData",
-    # Vectors="displacement")
-
     PointData_xml = etree.SubElement(Piece_xml, "PointData")
 
-    for i in range(len(ndfiles)):
+    for i in range(len(ndd_names)):
         data_dim = len(node_data[i][0])
 
         DataArray_xml = etree.SubElement(PointData_xml, "DataArray",
@@ -220,8 +231,6 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data, elem_data,
                                      Name="types")
 
     # assume that each subdomain only consists of the same element type
-    dom_elem_types = np.loadtxt(
-        workdir + 'element_types_%d.dat' % nstate, dtype=int)
     dom_elem_types = map(el_type_number, dom_elem_types)
     elem_types = ''
     for i in range(len(dom_elem_types)):
@@ -270,13 +279,18 @@ if __name__ == '__main__':
         # ECM-comp
         ndfiles = ['nodes_%d' % nstate]
         elfiles = ['elements_%d_0' % nstate, 'elements_%d_1' % nstate]
-        ndd_names = ['displacement', 'velocity', 'effective fluid pressure']
+        ndd_names = ['displacement', 'velocity']
         eld_names = ['fluid flux', 'stress', 'relative volume']
+        elndd_names = ['effective fluid pressure']
 
         vtkfile = 'res_%d.vtu' % nstate
 
         nodes, elems, dom_n_elems = load_geom(workdir, ndfiles, elfiles)
-        node_data, elem_data = load_data(workdir, nstate, ndd_names, eld_names)
+        node_data, elem_data, dom_elem_types, \
+            item_formats, item_names, item_def_doms\
+            = load_data(workdir, nstate, ndd_names,
+                        eld_names, elndd_names)
 
         write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
-                  elem_data, ndd_names, eld_names, vtkfile)
+                  elem_data, ndd_names, eld_names, dom_elem_types,
+                  item_formats, item_names, vtkfile)

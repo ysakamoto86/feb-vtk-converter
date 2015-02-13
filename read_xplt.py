@@ -456,6 +456,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
     a = search_block(f, TAGS, 'NODE_DATA')
     n_node_data = 0
+    item_def_doms = []
     while check_block(f, TAGS, 'STATE_VARIABLE'):
         n_node_data += 1
 
@@ -480,10 +481,13 @@ def read_xplt(workdir, filename, nstate, TAGS):
             return -1
 
         # assumption: node data is defined for all the ndoes
+        def_doms = []
         while(f.tell() < a_end):
             dom_num = struct.unpack('I', f.read(4))[0]
             data_size = struct.unpack('I', f.read(4))[0]
             n_data = int(data_size / data_dim / 4.0)
+            def_doms.append(dom_num)
+
             print 'number of node data for domain %s = %d'\
                 % (dom_num, n_data)
 
@@ -495,6 +499,8 @@ def read_xplt(workdir, filename, nstate, TAGS):
                 savetxt(workdir + '%s_%d.dat'
                         % (item_names[var_id - 1], nstate),
                         elem_data)
+
+        item_def_doms.append(def_doms)
 
     a = search_block(f, TAGS, 'ELEMENT_DATA')
     while check_block(f, TAGS, 'STATE_VARIABLE'):
@@ -519,10 +525,12 @@ def read_xplt(workdir, filename, nstate, TAGS):
             print 'unknwon data dimension!'
             return -1
 
+        def_doms = []
         while(f.tell() < a_end):
             dom_num = struct.unpack('I', f.read(4))[0]
             data_size = struct.unpack('I', f.read(4))[0]
             n_data = int(data_size / data_dim / 4.0)
+            def_doms.append(dom_num)
             print 'number of element data for domain %s = %d'\
                 % (dom_num, n_data)
 
@@ -534,6 +542,8 @@ def read_xplt(workdir, filename, nstate, TAGS):
                 savetxt(workdir + '%s_%d_%d.dat'
                         % (item_names[var_id - 1], nstate, dom_num - 1),
                         elem_data)
+
+        item_def_doms.append(def_doms)
 
         if f.tell() >= filesize:
             break
@@ -561,9 +571,18 @@ def read_xplt(workdir, filename, nstate, TAGS):
     if f.tell() == filesize:
         print 'EOF reached.'
 
-    # save element types for each subdomain
+    # save element types and item formats for each subdomain
     savetxt(workdir + 'element_types_%d.dat' % (nstate),
             dom_elem_types, fmt='%d')
+    savetxt(workdir + 'item_format_%d.dat' % (nstate),
+            item_formats, fmt='%d')
+    savetxt(workdir + 'item_names_%d.dat' % (nstate),
+            item_names, fmt='%s')
+    with open(workdir + 'item_def_doms_%d.dat' % (nstate), 'w') as f:
+        for idd in item_def_doms:
+            for dd in idd:
+                f.write(str(dd) + ' ')
+            f.write('\n')
 
     # a = search_block(f, TAGS, 'ROOT', verbose=1, inv_TAGS=inv_TAGS)
 
