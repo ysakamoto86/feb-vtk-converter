@@ -7,6 +7,7 @@ import xml.dom.minidom as minidom
 # from lxml import etree
 
 import numpy as np
+from collections import OrderedDict
 
 from read_xplt import ELEM_TYPE
 
@@ -181,13 +182,14 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
 
             # gather all the 'defined' nodal values from the
             # subdomains
+            nodes_set = []
             for j in def_doms:
-                nodes_set = nodes_set.union(set(elems[j].flatten()))
+                nodes_set += list(elems[j].flatten())
 
-                nodes_set = list(nodes_set)
-
-                for k in range(len(nodes_set)):
-                    node_data_all[nodes_set[k]] = elem_data[i][j][k]
+            # remove duplicates while preserving order
+            nodes_set = list(OrderedDict.fromkeys(nodes_set))
+            for k in range(len(nodes_set)):
+                node_data_all[nodes_set[k]] = elem_data[i][j][k]
 
             DataArray_xml \
                 = etree.SubElement(PointData_xml, "DataArray",
