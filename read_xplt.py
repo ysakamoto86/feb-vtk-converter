@@ -532,19 +532,3 @@ def read_xplt(workdir, filename, nstate, TAGS):
     f.close()
 
     return ndfiles, elfiles
-
-
-if __name__ == '__main__':
-    # INPUT
-    if int(len(sys.argv) < 4):
-        print "Number of arguments wrong!"
-        sys.exit(1)
-
-    workdir = str(sys.argv[1])
-    filename = str(sys.argv[2])
-    nstate = int(sys.argv[3])  # read this state
-
-    # read_xplt(workdir, filename, nstate, TAGS)
-
-    for nstate in [10]:  # range(101):
-        read_xplt(workdir, filename, nstate, TAGS)
