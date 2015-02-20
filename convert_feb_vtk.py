@@ -6,7 +6,7 @@ import write_vtk as wv
 
 
 # INPUT
-if int(len(sys.argv) < 3):
+if int(len(sys.argv) < 4):
     print "Number of arguments wrong!"
     sys.exit(1)
 
@@ -17,7 +17,7 @@ nstate = int(sys.argv[3])  # read this state
 if workdir[-1] is not '/':
     workdir += '/'
 
-num_states = 101
+num_states = 21
 for nst in range(num_states):
     vtkfile = 'res_%d.vtu' % nst
 

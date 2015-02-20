@@ -67,10 +67,10 @@ def load_data(workdir, nstate, n_subdomains):
 
     # load miscelleneous data
     dom_elem_types = np.loadtxt(workdir + 'element_types_%d.dat' %
-                                nstate, dtype=int)
+                                nstate, dtype=int, ndmin=1)
 
     item_formats = np.loadtxt(workdir + 'item_format_%d.dat' % nstate,
-                              dtype=int)
+                              dtype=int, ndmin=1)
 
     item_names = np.genfromtxt(workdir + 'item_names_%d.dat' % nstate,
                                dtype='str', delimiter='\n')
@@ -147,7 +147,12 @@ def write_vtk(workdir, nodes, elems, dom_n_elems, node_data,
     PointData_xml = etree.SubElement(Piece_xml, "PointData")
 
     for i in range(len(node_data)):
-        data_dim = len(node_data[i][0])
+        if (type(node_data[i][0]) is np.ndarray):
+            data_dim = len(node_data[i][0])
+        elif (type(node_data[i][0]) is np.float64):
+            data_dim = 1
+        else:
+            assert(0), "Wrong data type"
 
         DataArray_xml = etree.SubElement(PointData_xml, "DataArray",
                                          type="Float32",

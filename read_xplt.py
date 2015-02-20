@@ -203,7 +203,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
     if(int(TAGS['FEBIO'], base=16) == struct.unpack('I', f.read(4))[0]):
         print('Correct FEBio format')
 
-    seek_block(f, TAGS, 'ROOT')
+    search_block(f, TAGS, 'ROOT')
 
     search_block(f, TAGS, 'HEADER')
 
