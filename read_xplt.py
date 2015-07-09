@@ -1,3 +1,12 @@
+"""
+read_xplt.py
+
+Read FEBIO's xplt format and output the nodde/element data.
+
+Ref: http://mrldata.sci.utah.edu/data/FEBioBinaryDatabaseSpecification.pdf
+
+"""
+
 import struct
 from numpy import *
 import sys
@@ -6,7 +15,7 @@ import pdb
 
 TAGS = {
     'FEBIO': '0x00464542',
-    'VERSION': '0x0003',
+    'VERSION': '0x0004',
     'ROOT': '0x01000000',
     'HEADER': '0x01010000',
     'HDR_VERSION': '0x01010001',
@@ -211,6 +220,9 @@ def read_xplt(workdir, filename, nstate, TAGS):
     version = struct.unpack('I', f.read(4))[0]
     if(int(TAGS['VERSION'], base=16) == version):
         print('Current version is: %d' % version)
+    else:
+        print('Incorrect plot file version!')
+        return -1
 
     a = search_block(f, TAGS, 'HDR_NODES')
     nNodes = struct.unpack('I', f.read(4))[0]
@@ -314,7 +326,6 @@ def read_xplt(workdir, filename, nstate, TAGS):
                 dom_elements[i], fmt='%d')
         elfiles.append('elements_%d_%d' % (nstate, i))
 
-    print f.tell()
     if search_block(f, TAGS, 'SURFACE_SECTION') > 0:
 
         surface_ids = []
@@ -330,16 +341,21 @@ def read_xplt(workdir, filename, nstate, TAGS):
             a = search_block(f, TAGS, 'SURFACE_ID')
             surface_ids.append(struct.unpack('I', f.read(4))[0])
 
+            # number of facets
             a = search_block(f, TAGS, 'SURFACE_FACES')
             surface_faces.append(struct.unpack('I', f.read(4))[0])
 
             a = search_block(f, TAGS, 'SURFACE_NAME')
-            surface_names.append(int(struct.unpack('I', f.read(4))[0]))
+            # surface name length is specified just above
+            surface_names.append(f.read(a).split('\x00')[0])
 
-            a = search_block(f, TAGS, 'FACE_LIST')
+            if (check_block(f, TAGS, 'FACE_LIST') == 0):
+                continue
+            else:
+                a = search_block(f, TAGS, 'FACE_LIST')
 
             while check_block(f, TAGS, 'FACE'):
-                a = search_block(f, TAGS, 'FACE', print_tag=0)
+                a = search_block(f, TAGS, 'FACE')
                 cur_cur = f.tell()
 
                 face = zeros(3, dtype=int)
@@ -354,7 +370,10 @@ def read_xplt(workdir, filename, nstate, TAGS):
                 # skip junk
                 f.seek(cur_cur + a, 0)
 
-    # a_state = search_block(f, TAGS, 'NODESET_SECTION', print_tag=0)
+    # skip nodeset section
+    a = search_block(f, TAGS, 'NODESET_SECTION', print_tag=0)
+    cur_cur = f.tell()
+    f.seek(cur_cur + a, 0)
 
     # skip the first nstate states
     cur_state = 0
@@ -376,6 +395,7 @@ def read_xplt(workdir, filename, nstate, TAGS):
 
     if cur_state != nstate:
         print "State %d does not exist!" % nstate
+        print "Current state is, ", cur_state
         return -1
 
     # now extract the information from the desired state

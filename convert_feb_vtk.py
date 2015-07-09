@@ -17,8 +17,8 @@ nstate = int(sys.argv[3])  # read this state
 if workdir[-1] is not '/':
     workdir += '/'
 
-num_states = 21
-for nst in range(num_states):
+# num_states = 200
+for nst in range(0, nstate, 1):
     vtkfile = 'res_%d.vtu' % nst
 
     ndfiles, elfiles = rx.read_xplt(workdir, filename, nst, rx.TAGS)
